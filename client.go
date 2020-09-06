@@ -69,6 +69,69 @@ func (c *Client) UpdateConfig(config *ClientConfig) {
 		c.Secret = secret
 	}
 }
+
+func (c *Client) request(method string, url string, params, result interface{}) (res *http.Response, err error) {
+	var data []byte
+	body := bytes.NewReader(make([]byte, 0))
+
+	if params != nil {
+		data, err = json.Marshal(params)
+		if err != nil {
+			return res, err
+		}
+
+		body = bytes.NewReader(data)
+	}
+
+	fullURL := fmt.Sprintf("%s%s", c.BaseURL, url)
+	req, err := http.NewRequest(method, fullURL, body)
+	if err != nil {
+		return res, err
+	}
+
+	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("User-Agent", "Client 1.0")
+
+	h, error := c.Headers(method, url, timestamp, string(data))
+
+	if err != nil {
+		return res, err
+	}
+
+	for k, v := range h {
+		req.Header.Add(k, v)
+	}
+
+	res, err = c.HTTPClient.Do(req)
+	if err != nil {
+		return res, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != 200 {
+		defer res.Body.Close()
+		error := Error{}
+		decoder := json.NewDecoder(res.Body)
+		if err := decoder.Decode(&error); error != nil {
+			return res, err
+		}
+
+		return res, error(error)
+	}
+
+	if result != nil {
+		decoder := json.NewDecoder(res.Body)
+		if err = decoder.Decode(result); err != nil {
+			return res, err
+		}
+	}
+
+	return res, nil
+}
+
 // Headers generates a map that can be used as headers to authenticate a request
 func (c *Client) Headers(method, url, timestamp, data string) (map[string]string, error) {
 	h := make(map[string]string)
