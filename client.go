@@ -69,3 +69,25 @@ func (c *Client) UpdateConfig(config *ClientConfig) {
 		c.Secret = secret
 	}
 }
+// Headers generates a map that can be used as headers to authenticate a request
+func (c *Client) Headers(method, url, timestamp, data string) (map[string]string, error) {
+	h := make(map[string]string)
+	h["CB-ACCESS-KEY"] = c.Key
+	h["CB-ACCESS-PASSPHRASE"] = c.Passphrase
+	h["CB-ACCESS-TIMESTAMP"] = timestamp
+
+	message := fmt.Sprintf(
+		"%s%s%s%s",
+		timestamp,
+		method,
+		url,
+		data,
+	)
+
+	sig, err := generateSig(message, c.Secret)
+	if err != nil {
+		return nil, err
+	}
+	h["CB-ACCESS-SIGN"] = sig
+	return h, nil
+}
