@@ -4,6 +4,7 @@ import(
 	"log"
 	"net/http"
 	"os"
+	"math"
 	"time"
 )
 
@@ -67,6 +68,20 @@ func (c *Client) UpdateConfig(config *ClientConfig) {
 	}
 	if secret != "" {
 		c.Secret = secret
+	}
+}
+
+func (c *Client) Request(method string, url string, params, result interface{}) (res *http.Response, err error) {
+	for i := 0; i < c.RetryCount+1; i++ {
+		retryDuration := time.Duration((math.Pow(2, float64(i))-1)/2*1000) * time.Millisecond
+		time.Sleep(retryDuration)
+
+		res, err = c.request(method, url, params, result)
+		if res != nil && res.StatusCode == 429 {
+			continue
+		} else {
+			break
+		}
 	}
 }
 
